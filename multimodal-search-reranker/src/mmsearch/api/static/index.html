@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search &amp; Reranker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e8ecef;
+    --panel: #fbfcfd;
+    --ink: #17202b;
+    --muted: #5b6b7c;
+    --rule: #c9d2da;
+    --up: #1c6b5a;
+    --down: #9b3d4e;
+    --focus: #2d5f9a;
+    --ui: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --read: "Literata", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 15px/1.5 var(--ui);
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font: 600 22px/1.2 var(--ui); margin: 0 0 4px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0 0 24px; max-width: 64ch; }
+
+  form { display: grid; grid-template-columns: 1fr auto; gap: 8px; max-width: 760px; }
+  input[type=search] {
+    font: 400 18px/1.3 var(--ui); padding: 12px 14px; color: var(--ink);
+    border: 1px solid var(--rule); border-radius: 6px; background: var(--panel);
+  }
+  button {
+    font: 600 15px var(--ui); padding: 0 20px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--ink); background: var(--ink); color: var(--panel);
+  }
+  input:focus-visible, button:focus-visible, label:focus-within {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+  .options { display: flex; flex-wrap: wrap; gap: 20px; margin: 12px 0 0; color: var(--muted); }
+  .options label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+
+  .status { margin: 20px 0 0; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.5em; }
+  .status.error { color: var(--down); }
+
+  .columns { display: grid; gap: 40px; margin-top: 16px; }
+  .columns.compare { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .columns.compare { grid-template-columns: 1fr; } }
+  .column h2 { font: 600 15px/1.3 var(--ui); margin: 0 0 2px; }
+  .column .timing { color: var(--muted); font-size: 13px; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+
+  ol.results { list-style: none; margin: 0; padding: 0; max-width: 760px; }
+  .result {
+    display: grid; grid-template-columns: 72px 1fr; gap: 16px;
+    padding: 18px 0; border-top: 1px solid var(--rule);
+  }
+  .rank { text-align: right; }
+  .rank .n { font: 600 28px/1 var(--read); display: block; }
+  .rank .move { display: block; margin-top: 6px; font-size: 12px; line-height: 1.3; color: var(--muted); }
+  .rank .move.up { color: var(--up); }
+  .rank .move.down { color: var(--down); }
+  .result h3 { font: 600 17px/1.35 var(--read); margin: 0 0 6px; }
+  .result p { font: 400 15px/1.6 var(--read); margin: 0; max-width: 68ch; }
+  .scores { margin-top: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .result.image .body { display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: start; }
+  .result img { width: 120px; height: 120px; object-fit: cover; border-radius: 4px; background: var(--rule); display: block; }
+  .kind { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+  fieldset { border: 0; padding: 0; margin: 0; display: contents; }
+  details.upload { margin: 28px 0 0; max-width: 760px; }
+  details.upload summary { cursor: pointer; font-weight: 600; }
+  .upload-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 12px; }
+  @media (max-width: 640px) { .upload-row { grid-template-columns: 1fr; } }
+  .upload-row input[type=text] { font: 400 15px var(--ui); padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); color: var(--ink); }
+  .upload-row button { padding: 10px 18px; }
+  .empty { padding: 18px 0; border-top: 1px solid var(--rule); color: var(--muted); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .result.new { animation: settle 220ms ease-out; }
+    @keyframes settle { from { opacity: 0.35; } to { opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Search the index</h1>
+  <p class="lede">One query searches documents and images. Vector search finds candidates in each; reranking reorders them, and both lists are merged by estimated relevance. The note under each rank compares its position among results of its own type, before and after reranking.</p>
+
+  <form id="f">
+    <input id="q" type="search" placeholder="Ask in plain language" aria-label="Search query" autocomplete="off" required>
+    <button type="submit">Search</button>
+  </form>
+  <div class="options">
+    <fieldset aria-label="Result types">
+      <label><input id="m-text" type="checkbox" checked> Documents</label>
+      <label><input id="m-image" type="checkbox" checked> Images</label>
+    </fieldset>
+    <label><input id="rerank" type="checkbox" checked> Rerank</label>
+    <label><input id="compare" type="checkbox"> Show vector-only results alongside</label>
+  </div>
+
+  <details class="upload">
+    <summary>Add an image to the index</summary>
+    <form id="up" class="upload-row">
+      <input id="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" aria-label="Image file" required>
+      <input id="caption" type="text" maxlength="500" placeholder="Caption (optional, improves ranking)" aria-label="Caption">
+      <button type="submit">Add image</button>
+    </form>
+    <p id="up-status" class="status" role="status" aria-live="polite"></p>
+  </details>
+
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+  <div id="columns" class="columns"></div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ms = (v) => `${v.toFixed(1)} ms`;
+
+const STAGE_NAMES = { embed_text: "text embedding", embed_clip: "image-space embedding", retrieve: "vector search", rerank: "rerank", merge: "merge" };
+function timingLine(t) {
+  const parts = Object.keys(STAGE_NAMES).filter((k) => k in t).map((k) => `${STAGE_NAMES[k]} ${ms(t[k])}`);
+  return `${parts.join(", ")}; total ${ms(t.total)}`;
+}
+
+// Stage-1 ranks are per modality, so compare against the result's position among
+// results of the same modality, not its position in the merged list.
+function movement(r, localRank, reranked) {
+  if (!reranked) return "";
+  const kind = r.modality === "image" ? "image" : "document";
+  const d = r.vector_rank - localRank;
+  const tip = `${kind} ${localRank} after reranking, ${kind} ${r.vector_rank} in vector search`;
+  if (d > 0) return `<span class="move up" title="${tip}">▲ from ${kind} ${r.vector_rank}</span>`;
+  if (d < 0) return `<span class="move down" title="${tip}">▼ from ${kind} ${r.vector_rank}</span>`;
+  return `<span class="move" title="${tip}">unchanged</span>`;
+}
+
+function item(r, localRank, reranked) {
+  const rank = `<div class="rank"><span class="n">${r.rank}</span>${movement(r, localRank, reranked)}</div>`;
+  const scores = [`relevance ${r.relevance.toFixed(2)}`, `similarity ${r.vector_score.toFixed(3)}`];
+  if (r.rerank_score !== null) scores.push(`${r.modality === "image" ? "caption score" : "cross-encoder"} ${r.rerank_score.toFixed(2)}`);
+  scores.push(`id ${esc(r.document_id)}`);
+  if (r.modality === "image") {
+    return `<li class="result image new">${rank}<div class="body">
+      <img src="${esc(r.image_url)}" alt="${esc(r.title || "Indexed image")}" loading="lazy" width="120" height="120">
+      <div><p class="kind">Image, ${r.width}×${r.height}</p><h3>${esc(r.title || "Untitled image")}</h3>
+      <div class="scores">${scores.join(", ")}</div></div></div></li>`;
+  }
+  return `<li class="result new">${rank}<div>
+    <p class="kind">Document</p><h3>${esc(r.title || r.document_id)}</h3>
+    <p>${esc(r.snippet)}${(r.snippet || "").length >= 320 ? "…" : ""}</p>
+    <div class="scores">${scores.join(", ")}</div></div></li>`;
+}
+
+function column(title, data) {
+  const items = data.results.length
+    ? (() => {
+        const seen = { text: 0, image: 0 };
+        return data.results.map((r) => item(r, ++seen[r.modality], data.reranked)).join("");
+      })()
+    : `<li class="empty">Nothing matched. On a fresh install, load data with make ingest-sample and make ingest-images.</li>`;
+  return `<section class="column"><h2>${title}</h2><p class="timing">${timingLine(data.timings_ms)}</p><ol class="results">${items}</ol></section>`;
+}
+
+function modalities() {
+  return ["text", "image"].filter((m) => $(`m-${m}`).checked);
+}
+
+async function run(query, rerank) {
+  const res = await fetch(`/search?q=${encodeURIComponent(query)}&top_k=8&rerank=${rerank}&modalities=${modalities().join(",")}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(res.status === 503 ? "The server is still loading models. Try again in a few seconds." : (body.detail || `Request failed with status ${res.status}`));
+  }
+  return res.json();
+}
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const query = $("q").value.trim();
+  if (!query) return;
+  const rerank = $("rerank").checked, compare = $("compare").checked;
+  if (!modalities().length) {
+    $("status").className = "status error";
+    $("status").textContent = "Choose documents, images, or both.";
+    return;
+  }
+  $("status").className = "status";
+  $("status").textContent = "Searching";
+  try {
+    const main = await run(query, rerank);
+    const cols = [column(rerank ? "Reranked" : "Vector search", main)];
+    if (compare && rerank) cols.push(column("Vector search only", await run(query, false)));
+    $("columns").className = "columns" + (cols.length > 1 ? " compare" : "");
+    $("columns").innerHTML = cols.join("");
+    const c = main.candidates_considered;
+    $("status").textContent = `Considered ${c.text} documents and ${c.image} images`;
+  } catch (err) {
+    $("status").className = "status error";
+    $("status").textContent = err.message;
+  }
+});
+
+$("up").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = $("file").files[0];
+  if (!f) return;
+  const body = new FormData();
+  body.append("file", f);
+  if ($("caption").value.trim()) body.append("caption", $("caption").value.trim());
+  $("up-status").className = "status";
+  $("up-status").textContent = "Adding image";
+  try {
+    const res = await fetch("/images", { method: "POST", body });
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : `Upload failed with status ${res.status}`);
+    $("up-status").textContent = data.created
+      ? `Added ${data.document_id} (${data.width}×${data.height}). It is searchable now.`
+      : `This image is already indexed as ${data.document_id}.`;
+    $("up").reset();
+  } catch (err) {
+    $("up-status").className = "status error";
+    $("up-status").textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>

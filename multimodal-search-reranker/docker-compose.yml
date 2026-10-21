@@ -1,0 +1,51 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: mms
+      POSTGRES_PASSWORD: mms
+      POSTGRES_DB: mms
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    # Large enough for in-memory HNSW builds; shm is needed by parallel index builds.
+    shm_size: 1g
+    command: >
+      postgres
+        -c shared_buffers=512MB
+        -c effective_cache_size=1GB
+        -c max_parallel_maintenance_workers=2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mms -d mms"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      args:  # interpolated from .env, so the image always contains the configured models
+        MMS_BI_ENCODER_MODEL: ${MMS_BI_ENCODER_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+        MMS_CROSS_ENCODER_MODEL: ${MMS_CROSS_ENCODER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+        MMS_CLIP_MODEL: ${MMS_CLIP_MODEL:-openai/clip-vit-base-patch32}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HF_HUB_OFFLINE: "1"            # models are baked into the image at build time
+      MMS_DATABASE_URL: postgresql://mms:mms@db:5432/mms
+      MMS_TEST_DATABASE_URL: postgresql://mms:mms@db:5432/mms_test
+      MMS_MEDIA_DIR: /app/data/media  # image files; lives under the ./data bind mount
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+
+volumes:
+  pgdata:

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+data/beir/
+reports/*.json
+!reports/.gitkeep
+data/media/
+data/images_synth/

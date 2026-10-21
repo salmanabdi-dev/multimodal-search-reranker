@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmsearch"
+version = "0.1.0"
+description = "Multimodal two-stage search: MiniLM + CLIP retrieval over pgvector HNSW, cross-encoder reranking."
+requires-python = ">=3.10"
+# torch is installed separately (CPU or CUDA wheel) -- see Dockerfile / README.
+dependencies = [
+    "transformers>=4.44,<5",
+    "huggingface_hub>=0.24",
+    "numpy>=1.26,<3",
+    "fastapi>=0.111,<1",
+    "uvicorn[standard]>=0.30",
+    "asyncpg>=0.29",
+    "pgvector>=0.3.2",
+    "pydantic>=2.6,<3",
+    "pydantic-settings>=2.2",
+    "httpx>=0.27",
+    "pillow>=10.3",
+    "python-multipart>=0.0.9",   # multipart/form-data parsing for image uploads
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "sentence-transformers>=3.0",   # only used by the parity test
+]
+
+[project.scripts]
+mmsearch = "mmsearch.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mmsearch = ["api/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: needs a running Postgres+pgvector and downloaded models",
+]
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

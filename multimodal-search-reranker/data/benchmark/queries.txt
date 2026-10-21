@@ -1,0 +1,49 @@
+# Fixed benchmark query set: visited in order, cycled. Mixed lengths on purpose.
+# Do not edit between runs you intend to compare.
+vitamin d
+statins
+breast cancer risk factors
+does coffee increase blood pressure
+effects of red meat on colon cancer
+how does fiber affect cholesterol
+is intermittent fasting safe
+omega 3 fatty acids and heart disease
+what are the benefits of green tea
+can diet reduce inflammation
+how much protein do older adults need
+link between sugar and type 2 diabetes
+do probiotics help irritable bowel syndrome
+is soy safe for people with thyroid problems
+what foods are high in iron
+does exercise lower the risk of dementia
+how does alcohol affect the liver
+are eggs bad for cholesterol
+can turmeric reduce joint pain
+what is the mediterranean diet
+how to keep a sourdough starter alive
+why is the sky blue
+debugging memory leaks in python
+symptoms of iron deficiency
+how does compound interest work
+when to plant tomatoes
+how to recover from jet lag quickly
+how vaccines train the immune system
+what are the long term health effects of drinking diet soda every day for many years
+does eating late at night cause weight gain or is total daily calorie intake what matters
+which nutrients are most often lacking in a strict vegan diet and how can they be supplemented
+how does chronic sleep deprivation affect blood sugar regulation and insulin sensitivity
+what is the evidence that processed meat consumption increases the risk of stomach cancer
+are there any foods that measurably reduce the risk of developing kidney stones
+caffeine and pregnancy
+salt intake and stroke
+gluten free diet without celiac disease
+arsenic in rice
+milk and acne
+nuts and weight loss
+# visual queries (added with image support)
+a red circle
+something blue
+a yellow star on a white background
+an orange square
+a small green triangle
+purple shapes
